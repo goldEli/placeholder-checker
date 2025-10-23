@@ -1,0 +1,30 @@
+{
+  "name": "i18n-placeholder-checker",
+  "version": "0.1.0",
+  "description": "Validate locale placeholder parity against a source JSON file.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "i18n-placeholder-checker": "./bin/placeholder-checker.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "i18n",
+    "localization",
+    "placeholders",
+    "lint",
+    "translations"
+  ],
+  "author": "",
+  "license": "MIT"
+}
