@@ -2,12 +2,40 @@ import { promises as fs } from "fs";
 import path from "path";
 
 const PLACEHOLDER_PATTERN = /\{([^{}]+)\}/g;
-const DEFAULT_SOURCE = "zh-cn.json";
+export const DEFAULT_SOURCE_CANDIDATES = [
+  "zh-cn.json",
+  "zhCN.json",
+  "zh-CN.json",
+  "zh_CN.json",
+];
 const DEFAULT_IGNORES = new Set([
   "package.json",
   "package-lock.json",
   "npm-shrinkwrap.json"
 ]);
+
+function resolveSourceFile(directoryEntries, { directory, override }) {
+  if (override) {
+    const explicitEntry = directoryEntries.find(
+      (entry) => entry.isFile() && entry.name === override
+    );
+    if (!explicitEntry) {
+      throw new Error(`Source locale file "${override}" not found in ${directory}`);
+    }
+    return override;
+  }
+
+  const candidate = DEFAULT_SOURCE_CANDIDATES.find((name) =>
+    directoryEntries.some((entry) => entry.isFile() && entry.name === name)
+  );
+  if (candidate) {
+    return candidate;
+  }
+
+  throw new Error(
+    `Source locale file not found in ${directory}. Provide --source or add one of: ${DEFAULT_SOURCE_CANDIDATES.join(", ")}`
+  );
+}
 
 export function collectPlaceholders(value) {
   const counts = new Map();
@@ -173,22 +201,19 @@ function logWarningSummary(warnings, logFn, { prefix = "  • ", sampleSize = 5 
 export async function checkPlaceholders(options = {}) {
   const {
     cwd = process.cwd(),
-    source = DEFAULT_SOURCE,
+    source,
     ignore = [],
   } = options;
 
   const directory = path.resolve(cwd);
   const directoryEntries = await fs.readdir(directory, { withFileTypes: true });
 
-  const sourceEntry = directoryEntries.find(
-    (entry) => entry.isFile() && entry.name === source
-  );
+  const resolvedSource = resolveSourceFile(directoryEntries, {
+    directory,
+    override: source,
+  });
 
-  if (!sourceEntry) {
-    throw new Error(`Source locale file "${source}" not found in ${directory}`);
-  }
-
-  const ignoreSet = new Set([source, ...ignore]);
+  const ignoreSet = new Set([resolvedSource, ...ignore]);
   for (const name of DEFAULT_IGNORES) {
     ignoreSet.add(name);
   }
@@ -203,7 +228,7 @@ export async function checkPlaceholders(options = {}) {
     .map((entry) => entry.name)
     .sort();
 
-  const sourcePath = path.join(directory, source);
+  const sourcePath = path.join(directory, resolvedSource);
   const sourceEntries = await loadJson(sourcePath);
   const sourcePlaceholders = buildSourcePlaceholderMap(sourceEntries);
 
@@ -222,7 +247,7 @@ export async function checkPlaceholders(options = {}) {
   return {
     ok: failures.length === 0,
     directory,
-    sourceFile: source,
+    sourceFile: resolvedSource,
     filesChecked: localeFiles,
     failures,
     warningsOnly,

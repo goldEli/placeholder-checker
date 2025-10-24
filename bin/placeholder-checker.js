@@ -2,16 +2,22 @@
 
 import path from "path";
 import process from "process";
-import { run } from "../src/index.js";
+import { DEFAULT_SOURCE_CANDIDATES, run } from "../src/index.js";
 
 function printHelp() {
+  const [primarySource, ...fallbackSources] = DEFAULT_SOURCE_CANDIDATES;
+  const defaultSourceDescription =
+    fallbackSources.length === 0
+      ? primarySource
+      : `${primarySource} (fallbacks: ${fallbackSources.join(", ")})`;
+
   console.log(`i18n-placeholder-checker
 
 Usage:
   i18n-placeholder-checker [options]
 
 Options:
-  -s, --source <file>    Source locale file to compare against (default: zh-cn.json)
+  -s, --source <file>    Source locale file to compare against (default: ${defaultSourceDescription})
   --cwd <path>           Directory to scan (default: current working directory)
   --ignore <file>        Additional JSON files to ignore (repeatable, comma separated allowed)
   -h, --help             Show this help message
