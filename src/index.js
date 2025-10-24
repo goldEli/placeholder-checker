@@ -14,6 +14,10 @@ const DEFAULT_IGNORES = new Set([
   "npm-shrinkwrap.json"
 ]);
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function resolveSourceFile(directoryEntries, { directory, override }) {
   if (override) {
     const explicitEntry = directoryEntries.find(
@@ -37,7 +41,8 @@ function resolveSourceFile(directoryEntries, { directory, override }) {
   );
 }
 
-export function collectPlaceholders(value) {
+export function collectPlaceholders(value, options = {}) {
+  const { keywordPrefixes = [] } = options;
   const counts = new Map();
   if (typeof value !== "string") {
     return counts;
@@ -67,6 +72,29 @@ export function collectPlaceholders(value) {
     counts.set(token, (counts.get(token) ?? 0) + 1);
   }
 
+  if (keywordPrefixes.length > 0) {
+    for (const prefix of keywordPrefixes) {
+      if (!prefix) {
+        continue;
+      }
+      const pattern = new RegExp(`${escapeRegExp(prefix)}\\d+`, "g");
+      let match;
+      while ((match = pattern.exec(value)) !== null) {
+        const token = match[0];
+        const startIndex = match.index;
+        const endIndex = startIndex + token.length;
+
+        const charBefore = value[startIndex - 1];
+        const charAfter = value[endIndex];
+        if (charBefore === "{" && charAfter === "}") {
+          continue;
+        }
+
+        counts.set(token, (counts.get(token) ?? 0) + 1);
+      }
+    }
+  }
+
   return counts;
 }
 
@@ -79,10 +107,10 @@ async function loadJson(filePath) {
   }
 }
 
-function buildSourcePlaceholderMap(sourceEntries) {
+function buildSourcePlaceholderMap(sourceEntries, collectOptions) {
   const map = new Map();
   for (const [key, value] of Object.entries(sourceEntries)) {
-    map.set(key, collectPlaceholders(value));
+    map.set(key, collectPlaceholders(value, collectOptions));
   }
   return map;
 }
@@ -116,7 +144,7 @@ function formatPlaceholderMap(placeholderMap) {
     .sort();
 }
 
-function compareLocaleFile(sourcePlaceholders, targetEntries) {
+function compareLocaleFile(sourcePlaceholders, targetEntries, collectOptions) {
   const errors = [];
   const warnings = [];
 
@@ -139,7 +167,7 @@ function compareLocaleFile(sourcePlaceholders, targetEntries) {
       continue;
     }
 
-    const targetPlaceholderMap = collectPlaceholders(targetValue);
+    const targetPlaceholderMap = collectPlaceholders(targetValue, collectOptions);
     const diff = diffPlaceholders(sourcePlaceholderMap, targetPlaceholderMap);
     if (diff.missing.length || diff.extra.length || diff.countMismatch.length) {
       errors.push({
@@ -203,6 +231,7 @@ export async function checkPlaceholders(options = {}) {
     cwd = process.cwd(),
     source,
     ignore = [],
+    keywordPrefixes = [],
   } = options;
 
   const directory = path.resolve(cwd);
@@ -230,12 +259,13 @@ export async function checkPlaceholders(options = {}) {
 
   const sourcePath = path.join(directory, resolvedSource);
   const sourceEntries = await loadJson(sourcePath);
-  const sourcePlaceholders = buildSourcePlaceholderMap(sourceEntries);
+  const collectOptions = { keywordPrefixes };
+  const sourcePlaceholders = buildSourcePlaceholderMap(sourceEntries, collectOptions);
 
   const results = [];
   for (const file of localeFiles) {
     const targetEntries = await loadJson(path.join(directory, file));
-    const outcome = compareLocaleFile(sourcePlaceholders, targetEntries);
+    const outcome = compareLocaleFile(sourcePlaceholders, targetEntries, collectOptions);
     results.push({ file, ...outcome });
   }
 

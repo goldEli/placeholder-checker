@@ -20,6 +20,7 @@ Options:
   -s, --source <file>    Source locale file to compare against (default: ${defaultSourceDescription})
   --cwd <path>           Directory to scan (default: current working directory)
   --ignore <file>        Additional JSON files to ignore (repeatable, comma separated allowed)
+  --keyword-prefix <p>   Treat comma-separated prefixes as numbered placeholders (repeatable)
   -h, --help             Show this help message
 `);
 }
@@ -29,6 +30,7 @@ function parseArguments(argv) {
     source: undefined,
     cwd: process.cwd(),
     ignore: [],
+    keywordPrefixes: [],
     help: false,
   };
 
@@ -86,6 +88,22 @@ function parseArguments(argv) {
       continue;
     }
 
+    if (arg === "--keyword-prefix" || arg === "-k") {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error("Missing value for --keyword-prefix");
+      }
+      options.keywordPrefixes.push(...value.split(","));
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--keyword-prefix=")) {
+      const value = arg.slice("--keyword-prefix=".length);
+      options.keywordPrefixes.push(...value.split(","));
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${arg}`);
   }
 
@@ -113,6 +131,7 @@ async function main() {
       cwd: options.cwd,
       source: options.source,
       ignore: options.ignore.filter(Boolean),
+      keywordPrefixes: options.keywordPrefixes.filter(Boolean),
     });
     process.exitCode = ok ? 0 : 1;
   } catch (error) {

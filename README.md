@@ -21,6 +21,7 @@ npx i18n-placeholder-checker \
 | `-s, --source <file>` | Source locale file used as the placeholder reference. Defaults to `zh-cn.json`. |
 | `--cwd <path>` | Directory containing locale files. Defaults to the current working directory. |
 | `--ignore <file>` | Additional JSON files to skip. Repeat the flag or provide a comma-separated list. |
+| `-k, --keyword-prefix <p>` | Treat comma-separated prefixes as numbered placeholders (repeatable). |
 
 The CLI exits with code `1` when placeholder mismatches are detected so it fits into Git hooks and CI jobs.
 
